@@ -1,95 +1,93 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:pharmacy_flutter/constants/color.dart';
-import 'package:pharmacy_flutter/constants/environment.dart';
-import 'package:pharmacy_flutter/widgets/heading_text.dart';
-import 'package:pharmacy_flutter/widgets/role_selection_form.dart';
-import 'package:http/http.dart' as http;
+import 'package:pharmacy_app_updated/constants/colors.dart';
+import 'package:pharmacy_app_updated/constants/logger.dart';
+import 'package:pharmacy_app_updated/guard/auth.guard.dart';
+import 'package:pharmacy_app_updated/services/auth.service.dart';
+import 'package:pharmacy_app_updated/services/medicine.service.dart';
+import 'package:pharmacy_app_updated/widgets/forms/role_selection_form.dart';
+import 'package:pharmacy_app_updated/widgets/ui/headings.dart';
+import 'package:pharmacy_app_updated/widgets/ui/toast.dart';
 
 class RoleSelectionScreen extends StatefulWidget {
-  const RoleSelectionScreen({super.key, this.user, this.token});
-
-  final Map<String, dynamic>? user;
-  final String? token;
+  const RoleSelectionScreen({super.key});
 
   @override
   State<RoleSelectionScreen> createState() => _RoleSelectionScreenState();
 }
 
 class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
-  dynamic _userRoles = [];
+  List<dynamic> _userRoles = [];
+
+  AuthService authService = AuthService();
+  MedicineService medicineService = MedicineService();
 
   @override
   void initState() {
-    _getUserRoles();
-    // TODO: implement initState
+    fetchUserRoles();
     super.initState();
   }
 
-  void _getUserRoles() async {
-    final url = Uri.parse('$apiUrl/auth/role');
-
-    final username = widget.user?['email'];
-
+  void fetchUserRoles() async {
     try {
-      final response = await http
-          .post(url, body: json.encode({'username': username}), headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ${widget.token}',
-      });
+      final user = await authService.getUserDataFromLocalStorage();
+      final userData = json.decode(user);
+      logger.i("--User Data : $userData");
 
-      if (response.statusCode == 200) {
-        final jsonData = jsonDecode(response.body);
-        print("User roles : $jsonData");
-        setState(() {
-          _userRoles = jsonData;
-        });
-      } else {
-        print('Failed to load roles');
+      final res = await authService
+          .getUserRolesByUserId({"username": userData["email"]});
+      logger.i("--User Roles Response: $res");
+
+      if (res == null) {
+        logger.i("--User Roles Response is null");
+        ToastNotification.showToast(
+            context: context, message: "No roles found login again");
       }
+
+      setState(() {
+        _userRoles = res;
+      });
     } catch (e) {
-      print("--Role Selection Error : $e");
+      logger.e("--Error fetching user data and User roles : $e");
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              child: Container(
-                width: double.infinity,
-                padding: EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                      colors: gradientColors,
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight),
+      body: AuthGuard(
+        child: SafeArea(
+          child: Column(
+            children: [
+              Expanded(
+                child: Container(
+                  width: double.infinity,
+                  padding: EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                        colors: gradientColors,
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight),
+                  ),
+                  child: Column(
+                    spacing: 10,
+                    children: [
+                      Image.asset(
+                        'assets/images/pharmacy_logo.png',
+                        width: 250,
+                      ),
+                      SizedBox(
+                        height: 50,
+                      ),
+                      h1("Select Role"),
+                      RoleSelectionForm(userRoles: _userRoles)
+                    ],
+                  ),
                 ),
-                child: Column(
-                  spacing: 10,
-                  children: [
-                    Image.asset(
-                      'assets/pharmacy_logo.png',
-                      width: 250,
-                    ),
-                    SizedBox(
-                      height: 50,
-                    ),
-                    h1("Select Role"),
-                    RoleSelectionForm(
-                      userRoles: _userRoles,
-                      user: widget.user,
-                      token: widget.token,
-                    )
-                  ],
-                ),
-              ),
-            )
-          ],
+              )
+            ],
+          ),
         ),
       ),
     );

@@ -1,4 +1,4 @@
-package com.example.pharmacy_flutter
+package com.example.pharmacy_app_updated
 
 import io.flutter.embedding.android.FlutterActivity
 

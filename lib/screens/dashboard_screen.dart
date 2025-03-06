@@ -1,102 +1,149 @@
 import 'package:flutter/material.dart';
-import 'package:pharmacy_flutter/constants/color.dart';
-import 'package:pharmacy_flutter/screens/add_medition_screen.dart';
-import 'package:pharmacy_flutter/screens/login_screen.dart';
-import 'package:pharmacy_flutter/widgets/heading_text.dart';
+import 'package:pharmacy_app_updated/constants/colors.dart';
+import 'package:pharmacy_app_updated/constants/logger.dart';
+import 'package:pharmacy_app_updated/constants/navigator.dart';
+import 'package:pharmacy_app_updated/guard/auth.guard.dart';
+import 'package:pharmacy_app_updated/screens/login_screen.dart';
+import 'package:pharmacy_app_updated/screens/medicines/add_medicine_screen.dart';
+import 'package:pharmacy_app_updated/screens/medicines/view_medicine_screen.dart';
+import 'package:pharmacy_app_updated/screens/qr_scanner/qr_select_screen.dart';
+import 'package:pharmacy_app_updated/services/medicine.service.dart';
+import 'package:pharmacy_app_updated/widgets/ui/headings.dart';
+import 'package:pharmacy_app_updated/widgets/ui/toast.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class DashboardScreen extends StatefulWidget {
-  const DashboardScreen({super.key, this.token, this.user, this.userRole});
-
-  final dynamic userRole;
-  final Map<String, dynamic>? user;
-  final String? token;
+  const DashboardScreen({super.key});
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
-  void _navigateToAddMedicinePage() {
-    Navigator.push(
-        context,
-        MaterialPageRoute(
-            builder: (ctx) => AddMeditionScreen(
-                  user: widget.user,
-                  token: widget.token,
-                  userRole: widget.userRole,
-                )));
+  final MedicineService medicineService = MedicineService();
+
+  List<dynamic> _medicines = [];
+
+  @override
+  void initState() {
+    fetchMedicines();
+    super.initState();
   }
 
-  void _logout() async {
+  void fetchMedicines() async {
+    try {
+      final res = await medicineService.getMedicines();
+      logger.i("Fetched Medicines : $res");
+
+      setState(() {
+        _medicines = res;
+      });
+    } catch (e) {
+      logger.e("Error while fetching medicines: $e");
+    }
+  }
+
+  void logout() async {
     final SharedPreferences localStorage =
         await SharedPreferences.getInstance();
-    await localStorage.remove('token');
-    await localStorage.remove('user');
-    await localStorage.clear();
-
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (ctx) => const LoginScreen()),
-    );
+    localStorage.remove('user');
+    localStorage.remove('token');
+    localStorage.clear();
+    navigateToHard(context, LoginScreen());
+    ToastNotification.showToast(
+        context: context, message: "Logged out successfully!");
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        leading: Image.asset('assets/pharmacy_logo.png'),
-        title: navBarTitle("Dashboard"),
+        leading: Image.asset('assets/images/pharmacy_logo.png'),
+        title: navBarTitle("Medicines"),
         actions: [
           Tooltip(
-            message: "Add Medition",
+            message: "Add Medicine",
             child: IconButton(
               icon: Icon(Icons.local_pharmacy_outlined),
               onPressed: () {
-                _navigateToAddMedicinePage();
+                navigateTo(context, AddMedicineScreen());
+              },
+            ),
+          ),
+          Tooltip(
+            message: "Scanner",
+            child: IconButton(
+              icon: Icon(Icons.qr_code_scanner_outlined),
+              onPressed: () {
+                navigateTo(context, QrSelectScreen());
               },
             ),
           ),
           IconButton(
             icon: Icon(Icons.logout),
-            onPressed: () {
-              _logout();
-            },
+            onPressed: logout,
           )
         ],
         backgroundColor: appBarColor,
       ),
-      body: Column(
-        children: [
-          Expanded(
-            child: Container(
-              width: double.infinity,
-              // padding: EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                    colors: gradientColors,
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight),
+      body: AuthGuard(
+        child: Column(
+          children: [
+            Expanded(
+              child: Container(
+                width: double.infinity,
+                padding: EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                      colors: gradientColors,
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight),
+                ),
+                child: Column(
+                  spacing: 10,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    h2("Medicines (${_medicines.length.toString()})"),
+                    if (_medicines.isEmpty)
+                      Center(
+                        child: CircularProgressIndicator(
+                          color: primaryColor,
+                        ),
+                      ),
+                    if (_medicines.isNotEmpty)
+                      Expanded(
+                        child: ListView.builder(
+                            itemCount: _medicines.length,
+                            itemBuilder: (ctx, index) {
+                              final medicine = _medicines[index];
+                              return InkWell(
+                                onTap: () {
+                                  navigateTo(
+                                    context,
+                                    ViewMedicineScreen(medicine: medicine),
+                                  );
+                                },
+                                child: Card(
+                                  child: ListTile(
+                                    title: Text(
+                                      medicine['medicineName'] ?? 'N/A',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    subtitle: Text(
+                                        'Manufacturer: ${medicine['manufacturerName'] ?? 0}'),
+                                  ),
+                                ),
+                              );
+                            }),
+                      ),
+                  ],
+                ),
               ),
-              child: Column(
-                spacing: 10,
-                children: [
-                  Expanded(
-                    child: Container(
-                      color: const Color.fromARGB(55, 255, 255, 255),
-                      padding: EdgeInsets.symmetric(horizontal: 5),
-                      child: Padding(
-                          padding: EdgeInsets.all(10),
-                          child: Center(
-                            child: Image.asset('assets/pharmacy_logo.png'),
-                          )),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          )
-        ],
+            )
+          ],
+        ),
       ),
     );
   }

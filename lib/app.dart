@@ -1,34 +1,49 @@
-import 'dart:convert';
+import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:pharmacy_flutter/screens/login_screen.dart';
-import 'package:pharmacy_flutter/screens/role_selection_screen.dart';
+import 'package:internet_connection_checker_plus/internet_connection_checker_plus.dart';
+import 'package:pharmacy_app_updated/screens/login_screen.dart';
+import 'package:pharmacy_app_updated/screens/role_selection_screen.dart';
+import 'package:pharmacy_app_updated/widgets/ui/no_connection.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-// class MainApp extends StatelessWidget {
-//   const MainApp({super.key});
-
-//   @override
-//   Widget build(BuildContext context) {
-//     return MaterialApp(home: LoginScreen());
-//   }
-// }
-
-class MainApp extends StatefulWidget {
-  const MainApp({super.key});
+class App extends StatefulWidget {
+  const App({super.key});
 
   @override
-  State<MainApp> createState() => _MainAppState();
+  State<App> createState() => _AppState();
 }
 
-class _MainAppState extends State<MainApp> {
+class _AppState extends State<App> {
   Widget startScreen = LoginScreen();
+  bool isConnectedToInternet = false;
+
+  StreamSubscription? _internetConnectionStreamSubscription;
 
   @override
   void initState() {
-    checkUserLogin();
-    // TODO: implement initState
     super.initState();
+    _internetConnectionStreamSubscription =
+        InternetConnection().onStatusChange.listen((event) {
+      switch (event) {
+        case InternetStatus.connected:
+          setState(() {
+            isConnectedToInternet = true;
+          });
+          break;
+        case InternetStatus.disconnected:
+          setState(() {
+            isConnectedToInternet = false;
+          });
+          break;
+        default:
+          setState(() {
+            isConnectedToInternet = false;
+          });
+          break;
+      }
+    });
+    checkUserLogin();
   }
 
   void checkUserLogin() async {
@@ -38,16 +53,21 @@ class _MainAppState extends State<MainApp> {
     var token = localStorage.getString('token');
     if (user != null && token != null) {
       setState(() {
-        startScreen = RoleSelectionScreen(
-          user: json.decode(user),
-          token: token,
-        );
+        startScreen = RoleSelectionScreen();
       });
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(home: startScreen);
+    return MaterialApp(
+      home: isConnectedToInternet
+          ? startScreen
+          : Scaffold(
+              body: Center(
+                child: noInternet(),
+              ),
+            ),
+    );
   }
 }

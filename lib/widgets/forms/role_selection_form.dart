@@ -1,16 +1,16 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:pharmacy_flutter/screens/dashboard_screen.dart';
+import 'package:pharmacy_app_updated/constants/colors.dart';
+import 'package:pharmacy_app_updated/constants/logger.dart';
+import 'package:pharmacy_app_updated/constants/navigator.dart';
+import 'package:pharmacy_app_updated/screens/dashboard_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class RoleSelectionForm extends StatefulWidget {
-  const RoleSelectionForm(
-      {super.key, required this.userRoles, this.user, this.token});
+  const RoleSelectionForm({super.key, required this.userRoles});
 
-  final List<dynamic> userRoles; // Ensure it's a list
-  final Map<String, dynamic>? user;
-  final String? token;
+  final List<dynamic> userRoles;
 
   @override
   State<RoleSelectionForm> createState() => _RoleSelectionFormState();
@@ -19,30 +19,34 @@ class RoleSelectionForm extends StatefulWidget {
 class _RoleSelectionFormState extends State<RoleSelectionForm> {
   final _formKey = GlobalKey<FormState>();
   String? _selectedRole;
+  bool isLoading = false;
 
   void onSelectionSubmit() async {
+    setState(() {
+      isLoading = true;
+    });
     if (!_formKey.currentState!.validate()) {
+      setState(() {
+        isLoading = false;
+      });
       return;
     }
 
     final selectedRoleDetails = widget.userRoles
         .firstWhere((role) => role['roleId'].toString() == _selectedRole);
 
-    print("Selected Role : $_selectedRole");
-    print("Selected Role Details : $selectedRoleDetails");
+    logger.d("Selected Role : $_selectedRole");
+    logger.d("Selected Role Details : $selectedRoleDetails");
 
     final SharedPreferences localStorage =
         await SharedPreferences.getInstance();
     await localStorage.setString('user', json.encode(selectedRoleDetails));
 
-    Navigator.push(
-        context,
-        MaterialPageRoute(
-            builder: (context) => DashboardScreen(
-                  user: widget.user,
-                  token: widget.token,
-                  userRole: selectedRoleDetails,
-                )));
+    navigateToHard(context, DashboardScreen());
+
+    setState(() {
+      isLoading = false;
+    });
   }
 
   @override
@@ -74,15 +78,20 @@ class _RoleSelectionFormState extends State<RoleSelectionForm> {
                   value == null ? 'Please select a role' : null,
             ),
             const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () {
-                  onSelectionSubmit();
-                },
-                child: const Text('Submit'),
+            if (isLoading)
+              CircularProgressIndicator(
+                color: primaryColor,
               ),
-            ),
+            if (!isLoading)
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    onSelectionSubmit();
+                  },
+                  child: const Text('Submit'),
+                ),
+              ),
           ],
         ),
       ),

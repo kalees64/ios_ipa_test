@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:pharmacy_flutter/app.dart';
+import 'package:pharmacy_app_updated/app.dart';
 
 void main() {
-  runApp(MainApp());
+  runApp(App());
 }
