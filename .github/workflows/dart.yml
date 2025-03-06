@@ -12,16 +12,27 @@ jobs:
 
       - uses: subosito/flutter-action@v2
         with:
-          channel: 'stable'
+          channel: "stable"
           architecture: x64
       - run: flutter pub get
-      
 
-      - run: pod repo update
-        working-directory: ios
+      # Set iOS deployment target to 15.5
+      - name: Update iOS Deployment Target
+        run: |
+          sed -i '' "s/platform :ios, '12.0'/platform :ios, '15.5'/" ios/Podfile
 
+      # Clean pods and update
+      - name: Clean and reinstall pods
+        run: |
+          cd ios
+          rm -rf Pods Podfile.lock
+          pod repo update
+          pod install
+
+      # Build iOS app without codesigning
       - run: flutter build ios --release --no-codesign
 
+      # Prepare the .ipa file
       - run: mkdir Payload
         working-directory: build/ios/iphoneos
 
@@ -32,6 +43,7 @@ jobs:
         run: zip -qq -r -9 FlutterIpaExport.ipa Payload
         working-directory: build/ios/iphoneos
 
+      # Upload the IPA to GitHub releases
       - name: Upload binaries to release
         uses: svenstaro/upload-release-action@v2
         with:
